@@ -1,0 +1,6 @@
+[bot]
+token = "7215608690:AAHzIw5Y2no-CruDXTU68lZbKU1S3tDGpQE"
+
+
+[database]
+name = "database.db"
