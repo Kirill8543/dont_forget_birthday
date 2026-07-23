@@ -63,3 +63,4 @@ class Engine:
                                 WHERE user_tg = ?
                                 """, (user_tg, )).fetchone()[0]
 
+    # def check_queue(self, ):
