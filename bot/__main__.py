@@ -3,32 +3,34 @@ import sys
 import logging
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiohttp_socks import ProxyConnector
+
 from bot.config import Settings
 from bot.handlers import get_routers
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from bot.db import engine
 
-from bot.middlewares.middleware import SchedulerMiddleware
 
 
 async def main():
     settings = Settings()
 
-    scheduler = AsyncIOScheduler(timezone='Europe/Moscow')
-    scheduler.start()
+
+    session = AiohttpSession(proxy=settings.PROXY)
 
     bot = Bot(
-        token=settings.BOT_TOKEN
+        token=settings.BOT_TOKEN,
+        session=session
     )
 
     dp = Dispatcher()
 
     dp.include_routers(*get_routers())
-    dp.update.middleware(
-        SchedulerMiddleware(scheduler=scheduler),
-    )
-
+    bd_update_birthdays = asyncio.create_task(engine.update_birthdays())
+    polling = asyncio.create_task(dp.start_polling(bot))
     try:
-        await dp.start_polling(bot)
+        await bd_update_birthdays
+        await polling
     finally:
         print("Соси я оффнул бота хыхыхыхых")
 

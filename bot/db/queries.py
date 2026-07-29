@@ -1,5 +1,7 @@
 import sqlite3
 from bot.db.entities import User, Birthday
+import asyncio
+import datetime as dt
 
 class Engine:
 
@@ -16,13 +18,28 @@ class Engine:
             cur.execute("""CREATE TABLE IF NOT EXISTS birthdays(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
-            date TEXT,
+            date DATE,
             bd_us_id INTEGER,
             FOREIGN KEY (bd_us_id) REFERENCES user(id)            
                 ON DELETE CASCADE
                 ON UPDATE CASCADE
             )""")
 
+            conn.commit()
+    def create_trigger(self) -> None:
+        with sqlite3.connect(self.db) as conn:
+            cur = conn.cursor()
+            # Этот триггер не будет работать ибо нет триггера SELECT (((
+            # Надо сделать TRIGGER на вставку, чтобы автоматом дату двигал при вставке, но это не решает фулл траблс,
+            # так что вытаскиваем логику из engine в Birthday... или не
+
+            # cur.execute("""CREATE TRIGGER before_select_year BEFORE SELECT
+            #                 ON birthdays FOR EACH ROW
+            #                 BEGIN
+            #                     UPDATE birthdays
+            #                     SET date = DATE(OLD.date, '+1 year')
+            #                     WHERE date < ?
+            #                 END;""", (dt.date.today(), ))
             conn.commit()
 
     def insert_user(self, user: User) -> None:
@@ -63,4 +80,22 @@ class Engine:
                                 WHERE user_tg = ?
                                 """, (user_tg, )).fetchone()[0]
 
-    # def check_queue(self, ):
+    async def update_birthdays(self):
+        while True:
+            with sqlite3.connect(self.db) as conn:
+                cur = conn.cursor()
+
+                temp = cur.execute("""SELECT * 
+                                    FROM birthdays 
+                                    ORDER BY date, id""").fetchone()
+
+                birthday = Birthday(name=temp[1], date=dt.date.fromisoformat(temp[2]), bd_us_id=temp[3])
+
+                if birthday.check_actuality():
+                    cur.execute("""UPDATE birthdays 
+                                    SET date = DATE(date, '+1 year')
+                                    WHERE date < DATE('now');""")
+
+                conn.commit()
+                print("sssssss")
+            await asyncio.sleep(86400)
