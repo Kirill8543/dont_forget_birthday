@@ -2,7 +2,9 @@ import datetime as dt
 
 
 class User:
-    user_tg: str
+    def __init__(self, user_tg, chat_id):
+        self.user_tg = user_tg
+        self.chat_id = chat_id
 
 class Birthday:
     def __init__(self, name, date, bd_us_id):

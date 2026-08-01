@@ -13,7 +13,8 @@ class Engine:
             cur.execute("PRAGMA foreign_keys = ON")
             cur.execute("""CREATE TABLE IF NOT EXISTS users(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_tg TEXT)""")
+            user_tg TEXT,
+            chat_id INTEGER)""")
         
             cur.execute("""CREATE TABLE IF NOT EXISTS birthdays(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,9 +48,9 @@ class Engine:
             cur = conn.cursor()
 
             cur.execute("""
-            INSERT INTO users (user_tg)
-            VALUES (?)
-            """, (user.user_tg, ))
+            INSERT INTO users (user_tg, chat_id)
+            VALUES (?, ?)
+            """, (user.user_tg, user.chat_id))
             conn.commit()
 
     def insert_birthday(self, birthday: Birthday) -> None:
@@ -89,13 +90,27 @@ class Engine:
                                     FROM birthdays 
                                     ORDER BY date, id""").fetchone()
 
-                birthday = Birthday(name=temp[1], date=dt.date.fromisoformat(temp[2]), bd_us_id=temp[3])
+                birthday = None
 
-                if birthday.check_actuality():
+                if temp:
+                    birthday = Birthday(name=temp[1], date=dt.date.fromisoformat(temp[2]), bd_us_id=temp[3])
+
+                if birthday and birthday.check_actuality():
                     cur.execute("""UPDATE birthdays 
                                     SET date = DATE(date, '+1 year')
                                     WHERE date < DATE('now');""")
 
                 conn.commit()
-                print("sssssss")
             await asyncio.sleep(86400)
+
+    def check_birthdays(self) -> list[tuple]:
+        with sqlite3.connect(self.db) as conn:
+            cur = conn.cursor()
+
+            temp = cur.execute("""SELECT chat_id
+                            FROM users
+                            JOIN birthdays ON users.id = birthdays.bd_us_id
+                            WHERE DATE(birthdays.date, '-7 day') <= DATE('now')
+                            GROUP BY users.chat_id""").fetchall()
+
+            return temp
